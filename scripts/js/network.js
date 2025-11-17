@@ -183,12 +183,21 @@ $(() => {
         $("td:eq(1)", row).html(
           utils.escapeHtml(data.hwaddr) + "<br>" + utils.escapeHtml(data.macVendor)
         );
-      }
-
-      // Make mock MAC addresses italics and add title
-      if (data.hwaddr.startsWith("ip-")) {
+      } else if (data.hwaddr && data.hwaddr.includes(":")) {
+        const firstOctet = Number.parseInt(data.hwaddr.split(":")[0], 16);
+        // Check whether the 2 (0x02) bit is set using arithmetic to avoid bitwise operators:
+        if (Math.floor(firstOctet / 2) % 2 === 1) {
+          $("td:eq(1)", row).html(utils.escapeHtml(data.hwaddr) + "<br>Local Address");
+        } else {
+          $("td:eq(1)", row).html(utils.escapeHtml(data.hwaddr) + "<br>Unregistered");
+        }
+      } else if (data.hwaddr.startsWith("ip-")) {
+        // Make mock MAC addresses italics and add title
         $("td:eq(1)", row).css("font-style", "italic");
         $("td:eq(1)", row).attr("title", "Mock MAC address");
+      } else {
+        $("td:eq(1)", row).css("color", "red");
+        $("td:eq(1)", row).html(utils.escapeHtml(data.hwaddr) + "<br>Unknown Format");
       }
 
       // Add delete button
