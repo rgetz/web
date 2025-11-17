@@ -179,16 +179,55 @@ $(() => {
       $("td:eq(0)", row).html(ips.join("<br>"));
 
       // MAC + Vendor field if available
-      if (data.macVendor && data.macVendor.length > 0) {
-        $("td:eq(1)", row).html(
-          utils.escapeHtml(data.hwaddr) + "<br>" + utils.escapeHtml(data.macVendor)
-        );
-      }
-
-      // Make mock MAC addresses italics and add title
+      const cell = $("td:eq(1)", row);
       if (data.hwaddr.startsWith("ip-")) {
-        $("td:eq(1)", row).css("font-style", "italic");
-        $("td:eq(1)", row).attr("title", "Mock MAC address");
+        // Case 1 - Make mock MAC addresses italics and add title
+        cell.css("font-style", "italic").attr("title", "Mock MAC address");
+      } else if (data.hwaddr.includes(":")) {
+        // Case 2 — MAC-like address
+        const parts = data.hwaddr.split(":");
+        const firstOctet = Number.parseInt(parts[0], 16);
+        // Arithmetic-only flag detection
+        const isMulticast = firstOctet % 2 === 1; // bit 0
+        const isLocal = Math.floor(firstOctet / 2) % 2 === 1; // bit 1
+        const lowNibble = firstOctet % 16; // 2nd hex digit
+        // Multicast overrides all SLAP meaning
+        if (isMulticast) {
+          // Case 2.1 - Multicast
+          cell.html(utils.escapeHtml(data.hwaddr) + "<br>Multicast Address");
+        } else if (isLocal) {
+          // Case 2.2 - Local SLAP
+          let slapLabel = null;
+          // SLAP quadrant resolution (RFC 9542)
+          switch (lowNibble) {
+            case 0x2:
+              slapLabel = "Local: Administrative";
+              break;
+            case 0x6:
+              slapLabel = "Local: Reserved";
+              break;
+            case 0xa:
+              slapLabel = "Local: Extended";
+              break;
+            case 0xe:
+              slapLabel = "Local: Standard";
+              break;
+            default:
+              slapLabel = "Local: Unclassified";
+              break;
+          }
+
+          cell.html(utils.escapeHtml(data.hwaddr) + "<br>" + slapLabel);
+        } else if (data.macVendor && data.macVendor.length > 0) {
+          // Case 2.3 - Global address space (U/L = 0)
+          cell.html(utils.escapeHtml(data.hwaddr) + "<br>" + utils.escapeHtml(data.macVendor));
+        } else {
+          // Case 2.4 - Lookup failed
+          cell.html(utils.escapeHtml(data.hwaddr) + "<br>Global: Unknown");
+        }
+      } else {
+        // Case 3 — Not IP-mock, not MAC-like
+        cell.css("color", "red").html(utils.escapeHtml(data.hwaddr) + "<br>Unknown Format");
       }
 
       // Add delete button
